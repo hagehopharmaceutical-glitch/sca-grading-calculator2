@@ -1,0 +1,118 @@
+import csv
+
+def evaluate_sca_green_coffee(sample_data, quakers_count=0):
+    """
+    Evaluates a 350g green coffee sample according to official SCA protocols.
+    """
+    # Category 1 ratios: divisor is count needed for 1 full defect
+    cat1_ratios = {
+        "Full Black": 1,
+        "Full Sour": 1,
+        "Dried Cherry / Pod": 1,
+        "Fungus-Damaged": 1,
+        "Foreign Matter (Large)": 1,
+        "Severe Insect Damage (>=3 holes)": 5
+    }
+
+    # Category 2 ratios
+    cat2_ratios = {
+        "Partial Black": 3,
+        "Partial Sour": 3,
+        "Parchment / Hull": 5,
+        "Floater": 5,
+        "Immature / Unripe": 5,
+        "Withered": 5,
+        "Shell": 5,
+        "Broken / Chipped / Cut": 5,
+        "Hull / Husk Pieces": 5,
+        "Slight Insect Damage (1-2 holes)": 10
+    }
+
+    # Calculate full defects
+    cat1_defects = {}
+    total_cat1 = 0.0
+    for defect, divisor in cat1_ratios.items():
+        count = sample_data.get(defect, 0)
+        full_pts = count // divisor
+        cat1_defects[defect] = (count, full_pts)
+        total_cat1 += full_pts
+
+    cat2_defects = {}
+    total_cat2 = 0.0
+    for defect, divisor in cat2_ratios.items():
+        count = sample_data.get(defect, 0)
+        full_pts = count // divisor
+        cat2_defects[defect] = (count, full_pts)
+        total_cat2 += full_pts
+
+    total_full_defects = total_cat1 + total_cat2
+
+    # Grade determination logic
+    if total_cat1 == 0 and total_cat2 <= 5 and quakers_count == 0:
+        grade = "Grade 1: Specialty Grade"
+        status = "PASSED (Eligible for Specialty Coffee)"
+    elif total_cat1 == 0 and total_cat2 <= 8 and quakers_count <= 3:
+        grade = "Grade 2: Premium Grade"
+        status = "PASSED (Premium Commercial)"
+    elif total_full_defects <= 23:
+        grade = "Grade 3: Exchange Grade"
+        status = "STANDARD COMMERCIAL"
+    elif total_full_defects <= 86:
+        grade = "Grade 4: Below Standard Grade"
+        status = "SUBSTANDARD"
+    else:
+        grade = "Grade 5: Off-Grade"
+        status = "REJECT / OFF-GRADE"
+
+    return {
+        "cat1_defects": cat1_defects,
+        "cat2_defects": cat2_defects,
+        "total_cat1": total_cat1,
+        "total_cat2": total_cat2,
+        "total_full_defects": total_full_defects,
+        "quakers": quakers_count,
+        "grade": grade,
+        "status": status
+    }
+
+def export_to_csv(results, filename="sca_grading_sheet.csv"):
+    with open(filename, mode='w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(["SCA GREEN COFFEE PHYSICAL GRADING REPORT"])
+        writer.writerow(["Sample Size", "350 grams"])
+        writer.writerow([])
+        writer.writerow(["CATEGORY 1: PRIMARY DEFECTS", "Bean Count", "Full Defect Points"])
+        for k, v in results["cat1_defects"].items():
+            writer.writerow([k, v[0], v[1]])
+        writer.writerow(["TOTAL CATEGORY 1 DEFECTS", "", results["total_cat1"]])
+        writer.writerow([])
+        writer.writerow(["CATEGORY 2: SECONDARY DEFECTS", "Bean Count", "Full Defect Points"])
+        for k, v in results["cat2_defects"].items():
+            writer.writerow([k, v[0], v[1]])
+        writer.writerow(["TOTAL CATEGORY 2 DEFECTS", "", results["total_cat2"]])
+        writer.writerow([])
+        writer.writerow(["COMBINED SUMMARY"])
+        writer.writerow(["Total Full Defects", results["total_full_defects"]])
+        writer.writerow(["Quakers in 100g Roast", results["quakers"]])
+        writer.writerow(["FINAL SCA GRADE", results["grade"]])
+        writer.writerow(["STATUS", results["status"]])
+
+    print(f"Exported grading report successfully to '{filename}'.")
+
+if __name__ == "__main__":
+    # Example 350g lot test
+    test_sample = {
+        "Full Black": 0,
+        "Full Sour": 0,
+        "Dried Cherry / Pod": 0,
+        "Fungus-Damaged": 0,
+        "Foreign Matter (Large)": 0,
+        "Severe Insect Damage (>=3 holes)": 0,
+        "Broken / Chipped / Cut": 8,       # 8 // 5 = 1 defect
+        "Immature / Unripe": 6,            # 6 // 5 = 1 defect
+        "Slight Insect Damage (1-2 holes)": 12 # 12 // 10 = 1 defect
+    }
+    
+    evaluation = evaluate_sca_green_coffee(test_sample, quakers_count=0)
+    print(f"Result: {evaluation['grade']} | Total Defects: {evaluation['total_full_defects']}")
+    export_to_csv(evaluation)
